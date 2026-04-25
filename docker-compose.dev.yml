@@ -28,6 +28,21 @@ services:
       - --email-domain=*
       - --insecure-oidc-allow-unverified-email=true
       - --skip-provider-button=true
+      - --pass-access-token=true
+      - --set-xauthrequest=true
+      # Bypass SSO for API + admin paths — LiteLLM enforces its own virtual-key auth.
+      - --skip-auth-route=^/v1/
+      - --skip-auth-route=^/chat/
+      - --skip-auth-route=^/embeddings
+      - --skip-auth-route=^/audio/
+      - --skip-auth-route=^/images/
+      - --skip-auth-route=^/moderations
+      - --skip-auth-route=^/models$$
+      - --skip-auth-route=^/health
+      - --skip-auth-route=^/metrics
+      - --skip-auth-route=^/key/
+      - --skip-auth-route=^/user/
+      - --skip-auth-route=^/team/
     depends_on:
       litellm:
         condition: service_healthy

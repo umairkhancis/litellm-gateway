@@ -32,8 +32,6 @@ services:
     container_name: litellm-gateway
     restart: unless-stopped
     command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
-    ports:
-      - "4000:4000"
     env_file:
       - .env
     environment:
@@ -77,6 +75,20 @@ services:
       - --skip-provider-button=true
       - --pass-access-token=true
       - --set-xauthrequest=true
+      # Bypass SSO for API + admin paths — LiteLLM enforces its own virtual-key auth.
+      # /ui and root remain SSO-gated.
+      - --skip-auth-route=^/v1/
+      - --skip-auth-route=^/chat/
+      - --skip-auth-route=^/embeddings
+      - --skip-auth-route=^/audio/
+      - --skip-auth-route=^/images/
+      - --skip-auth-route=^/moderations
+      - --skip-auth-route=^/models$$
+      - --skip-auth-route=^/health
+      - --skip-auth-route=^/metrics
+      - --skip-auth-route=^/key/
+      - --skip-auth-route=^/user/
+      - --skip-auth-route=^/team/
     ports:
       - "4180:4180"
     depends_on:
