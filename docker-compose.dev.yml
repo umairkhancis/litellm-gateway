@@ -1,0 +1,35 @@
+# Local dev override — use bundled Dex IdP for SSO testing.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev up -d
+#
+# Why an override? Auto-discovery against Dex doesn't work locally because
+# `localhost:5556` resolves differently inside the oauth2-proxy container
+# (itself) versus from the browser (the published Dex port). This file uses
+# manual endpoint configuration so server-to-server calls go via docker DNS
+# while the browser-facing auth URL stays as localhost:5556.
+
+services:
+  oauth2-proxy:
+    command:
+      - --provider=oidc
+      - --client-id=${OIDC_CLIENT_ID}
+      - --client-secret=${OIDC_CLIENT_SECRET}
+      - --skip-oidc-discovery=true
+      - --oidc-issuer-url=http://localhost:5556
+      - --login-url=http://localhost:5556/auth
+      - --redeem-url=http://dex:5556/token
+      - --oidc-jwks-url=http://dex:5556/keys
+      - --redirect-url=${OAUTH2_REDIRECT_URL}
+      - --upstream=http://litellm:4000
+      - --http-address=0.0.0.0:4180
+      - --cookie-secret=${OAUTH2_COOKIE_SECRET}
+      - --cookie-secure=false
+      - --email-domain=*
+      - --insecure-oidc-allow-unverified-email=true
+      - --skip-provider-button=true
+    depends_on:
+      litellm:
+        condition: service_healthy
+      dex:
+        condition: service_started
