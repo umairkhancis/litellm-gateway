@@ -29,6 +29,10 @@ general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
   store_model_in_db: true
+  # Persist prompts and responses to LiteLLM_SpendLogs (messages/response columns).
+  # Audit/compliance feature — disable for privacy-sensitive deployments.
+  # Off by default upstream; we opt in here so the audit trail captures content.
+  store_prompts_in_spend_logs: true
 
 litellm_settings:
   cache: true
