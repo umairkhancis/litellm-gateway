@@ -27,6 +27,19 @@ services:
       timeout: 3s
       retries: 10
 
+  # PII detection + redaction. LiteLLM calls these via docker DNS in pre_call mode,
+  # so prompts containing emails/SSNs/etc. are masked before reaching the upstream model.
+  # First boot pulls ~500MB of spaCy NLP models — subsequent restarts are fast.
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    container_name: litellm-presidio-analyzer
+    restart: unless-stopped
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:latest
+    container_name: litellm-presidio-anonymizer
+    restart: unless-stopped
+
   litellm:
     image: ghcr.io/berriai/litellm:main-stable
     container_name: litellm-gateway
@@ -50,6 +63,9 @@ services:
       GENERIC_AUTHORIZATION_ENDPOINT: ${GENERIC_AUTHORIZATION_ENDPOINT:-}
       GENERIC_TOKEN_ENDPOINT: ${GENERIC_TOKEN_ENDPOINT:-}
       GENERIC_USERINFO_ENDPOINT: ${GENERIC_USERINFO_ENDPOINT:-}
+      # Presidio PII guardrails (Slice 6) — internal docker DNS, no host port mapping needed.
+      PRESIDIO_ANALYZER_API_BASE: http://presidio-analyzer:3000
+      PRESIDIO_ANONYMIZER_API_BASE: http://presidio-anonymizer:3000
     volumes:
       - ./config.yaml:/app/config.yaml:ro
     extra_hosts:
@@ -59,6 +75,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      presidio-analyzer:
+        condition: service_started
+      presidio-anonymizer:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness').status==200 else 1)"]
       interval: 10s
