@@ -42,7 +42,7 @@ litellm_settings:
     user_role: "internal_user"
     max_budget: 5.0
     budget_duration: "30d"
-    models: ["claude-haiku-4-5"]
+    models: ["claude-haiku-4-5", "local-dmr"]
 
   # Allow internal_user role (not just proxy_admin) to create personal keys.
   # This is the documented knob that controls UI Create-Key button visibility.
