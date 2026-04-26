@@ -14,7 +14,7 @@ staticClients:
     name: LiteLLM Gateway
     secret: dev-client-secret
     redirectURIs:
-      - http://localhost:4180/oauth2/callback
+      - http://localhost:4000/sso/callback
 
 enablePasswordDB: true
 

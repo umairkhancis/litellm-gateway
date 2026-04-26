@@ -36,3 +36,16 @@ litellm_settings:
     type: redis
     host: os.environ/REDIS_HOST
     port: os.environ/REDIS_PORT
+
+  # Defaults applied when a new user is auto-created via SSO first-login.
+  default_internal_user_params:
+    user_role: "internal_user"
+    max_budget: 5.0
+    budget_duration: "30d"
+    models: ["claude-haiku-4-5"]
+
+  # Allow internal_user role (not just proxy_admin) to create personal keys.
+  # This is the documented knob that controls UI Create-Key button visibility.
+  key_generation_settings:
+    personal_key_generation:
+      allowed_user_roles: ["proxy_admin", "internal_user"]

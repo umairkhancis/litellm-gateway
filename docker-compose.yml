@@ -32,6 +32,8 @@ services:
     container_name: litellm-gateway
     restart: unless-stopped
     command: ["--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
+    ports:
+      - "4000:4000"
     env_file:
       - .env
     environment:
@@ -39,8 +41,15 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       STORE_MODEL_IN_DB: "True"
-      UI_USERNAME: ${UI_USERNAME}
-      UI_PASSWORD: ${UI_PASSWORD}
+      # Native OIDC SSO for the admin UI. LiteLLM creates user records on
+      # first login, scopes virtual keys per user, tracks spend per user.
+      # API paths (/v1/*, /chat/*, etc.) remain authenticated by virtual keys.
+      PROXY_BASE_URL: ${PROXY_BASE_URL:-}
+      GENERIC_CLIENT_ID: ${GENERIC_CLIENT_ID:-}
+      GENERIC_CLIENT_SECRET: ${GENERIC_CLIENT_SECRET:-}
+      GENERIC_AUTHORIZATION_ENDPOINT: ${GENERIC_AUTHORIZATION_ENDPOINT:-}
+      GENERIC_TOKEN_ENDPOINT: ${GENERIC_TOKEN_ENDPOINT:-}
+      GENERIC_USERINFO_ENDPOINT: ${GENERIC_USERINFO_ENDPOINT:-}
     volumes:
       - ./config.yaml:/app/config.yaml:ro
     extra_hosts:
@@ -56,44 +65,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
-    container_name: litellm-oauth2-proxy
-    restart: unless-stopped
-    command:
-      - --provider=oidc
-      - --client-id=${OIDC_CLIENT_ID}
-      - --client-secret=${OIDC_CLIENT_SECRET}
-      - --oidc-issuer-url=${OIDC_ISSUER_URL}
-      - --redirect-url=${OAUTH2_REDIRECT_URL}
-      - --upstream=http://litellm:4000
-      - --http-address=0.0.0.0:4180
-      - --cookie-secret=${OAUTH2_COOKIE_SECRET}
-      - --email-domain=*
-      - --insecure-oidc-allow-unverified-email=true
-      - --skip-provider-button=true
-      - --pass-access-token=true
-      - --set-xauthrequest=true
-      # Bypass SSO for API + admin paths — LiteLLM enforces its own virtual-key auth.
-      # /ui and root remain SSO-gated.
-      - --skip-auth-route=^/v1/
-      - --skip-auth-route=^/chat/
-      - --skip-auth-route=^/embeddings
-      - --skip-auth-route=^/audio/
-      - --skip-auth-route=^/images/
-      - --skip-auth-route=^/moderations
-      - --skip-auth-route=^/models$$
-      - --skip-auth-route=^/health
-      - --skip-auth-route=^/metrics
-      - --skip-auth-route=^/key/
-      - --skip-auth-route=^/user/
-      - --skip-auth-route=^/team/
-    ports:
-      - "4180:4180"
-    depends_on:
-      litellm:
-        condition: service_healthy
 
   dex:
     image: ghcr.io/dexidp/dex:v2.39.1

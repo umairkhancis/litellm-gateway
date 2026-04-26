@@ -1,50 +1,28 @@
-# Local dev override — use bundled Dex IdP for SSO testing.
+# Local dev override — point LiteLLM's OIDC at the bundled Dex IdP.
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev up -d
 #
-# Why an override? Auto-discovery against Dex doesn't work locally because
-# `localhost:5556` resolves differently inside the oauth2-proxy container
-# (itself) versus from the browser (the published Dex port). This file uses
-# manual endpoint configuration so server-to-server calls go via docker DNS
-# while the browser-facing auth URL stays as localhost:5556.
+# Why an override? Dex on `localhost:5556` resolves differently inside the
+# litellm container vs. the browser. The authorization endpoint must be
+# browser-reachable (localhost), but the token/userinfo endpoints are
+# called server-to-server from LiteLLM and must use docker DNS (dex:5556).
 
 services:
-  oauth2-proxy:
-    command:
-      - --provider=oidc
-      - --client-id=${OIDC_CLIENT_ID}
-      - --client-secret=${OIDC_CLIENT_SECRET}
-      - --skip-oidc-discovery=true
-      - --oidc-issuer-url=http://localhost:5556
-      - --login-url=http://localhost:5556/auth
-      - --redeem-url=http://dex:5556/token
-      - --oidc-jwks-url=http://dex:5556/keys
-      - --redirect-url=${OAUTH2_REDIRECT_URL}
-      - --upstream=http://litellm:4000
-      - --http-address=0.0.0.0:4180
-      - --cookie-secret=${OAUTH2_COOKIE_SECRET}
-      - --cookie-secure=false
-      - --email-domain=*
-      - --insecure-oidc-allow-unverified-email=true
-      - --skip-provider-button=true
-      - --pass-access-token=true
-      - --set-xauthrequest=true
-      # Bypass SSO for API + admin paths — LiteLLM enforces its own virtual-key auth.
-      - --skip-auth-route=^/v1/
-      - --skip-auth-route=^/chat/
-      - --skip-auth-route=^/embeddings
-      - --skip-auth-route=^/audio/
-      - --skip-auth-route=^/images/
-      - --skip-auth-route=^/moderations
-      - --skip-auth-route=^/models$$
-      - --skip-auth-route=^/health
-      - --skip-auth-route=^/metrics
-      - --skip-auth-route=^/key/
-      - --skip-auth-route=^/user/
-      - --skip-auth-route=^/team/
+  litellm:
+    environment:
+      PROXY_BASE_URL: http://localhost:4000
+      GENERIC_CLIENT_ID: litellm-gateway
+      GENERIC_CLIENT_SECRET: dev-client-secret
+      # Browser-facing — LiteLLM redirects the user here.
+      GENERIC_AUTHORIZATION_ENDPOINT: http://localhost:5556/auth
+      # Server-side — LiteLLM calls these from inside docker.
+      GENERIC_TOKEN_ENDPOINT: http://dex:5556/token
+      GENERIC_USERINFO_ENDPOINT: http://dex:5556/userinfo
     depends_on:
-      litellm:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       dex:
         condition: service_started
