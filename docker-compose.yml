@@ -27,19 +27,6 @@ services:
       timeout: 3s
       retries: 10
 
-  # PII detection + redaction. LiteLLM calls these via docker DNS in pre_call mode,
-  # so prompts containing emails/SSNs/etc. are masked before reaching the upstream model.
-  # First boot pulls ~500MB of spaCy NLP models — subsequent restarts are fast.
-  presidio-analyzer:
-    image: mcr.microsoft.com/presidio-analyzer:latest
-    container_name: litellm-presidio-analyzer
-    restart: unless-stopped
-
-  presidio-anonymizer:
-    image: mcr.microsoft.com/presidio-anonymizer:latest
-    container_name: litellm-presidio-anonymizer
-    restart: unless-stopped
-
   litellm:
     image: ghcr.io/berriai/litellm:main-stable
     container_name: litellm-gateway
@@ -63,11 +50,14 @@ services:
       GENERIC_AUTHORIZATION_ENDPOINT: ${GENERIC_AUTHORIZATION_ENDPOINT:-}
       GENERIC_TOKEN_ENDPOINT: ${GENERIC_TOKEN_ENDPOINT:-}
       GENERIC_USERINFO_ENDPOINT: ${GENERIC_USERINFO_ENDPOINT:-}
-      # Presidio PII guardrails (Slice 6) — internal docker DNS, no host port mapping needed.
-      PRESIDIO_ANALYZER_API_BASE: http://presidio-analyzer:3000
-      PRESIDIO_ANONYMIZER_API_BASE: http://presidio-anonymizer:3000
+      # Trust mkcert's local CA so server-to-server calls to dex.umairkhancis.test
+      # over HTTPS validate. Bundle = curl's public CA list + mkcert root, so
+      # public providers (Anthropic, etc.) keep working too.
+      SSL_CERT_FILE: /certs/cacert.pem
+      REQUESTS_CA_BUNDLE: /certs/cacert.pem
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ./certs/cacert.pem:/certs/cacert.pem:ro
     extra_hosts:
       - "model-runner.docker.internal:host-gateway"
     depends_on:
@@ -75,9 +65,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      presidio-analyzer:
+      dex:
         condition: service_started
-      presidio-anonymizer:
+      caddy:
         condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness').status==200 else 1)"]
@@ -90,13 +80,37 @@ services:
     image: ghcr.io/dexidp/dex:v2.39.1
     container_name: litellm-dex
     restart: unless-stopped
-    profiles: ["dev"]
     command: ["dex", "serve", "/etc/dex/config.yaml"]
-    ports:
-      - "5556:5556"
     volumes:
       - ./dex/config.yaml:/etc/dex/config.yaml:ro
+
+  # TLS termination + reverse proxy. Network aliases make Caddy resolvable
+  # under the public hostnames from inside the docker network too — so the
+  # litellm container hits dex.umairkhancis.test (HTTPS) the same way the
+  # browser does. No split-horizon, exactly like a real Okta tenant.
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: litellm-caddy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      dex:
+        condition: service_started
+    networks:
+      default:
+        aliases:
+          - litellm.umairkhancis.test
+          - dex.umairkhancis.test
 
 volumes:
   postgres_data:
   redis_data:
+  caddy_data:
+  caddy_config:

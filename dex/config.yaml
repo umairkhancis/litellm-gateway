@@ -1,4 +1,4 @@
-issuer: http://localhost:5556
+issuer: https://dex.umairkhancis.test
 
 storage:
   type: memory
@@ -14,7 +14,7 @@ staticClients:
     name: LiteLLM Gateway
     secret: dev-client-secret
     redirectURIs:
-      - http://localhost:4000/sso/callback
+      - https://litellm.umairkhancis.test/sso/callback
 
 enablePasswordDB: true
 

@@ -46,6 +46,18 @@ model_list:
       api_base: http://model-runner.docker.internal:12434/engines/v1
       api_key: dummy
 
+  - model_name: local-gemma
+    litellm_params:
+      model: openai/ai/gemma3:1B-Q4_K_M
+      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_key: dummy
+
+  - model_name: local-granite
+    litellm_params:
+      model: openai/ai/granite-4.0-h-nano:350M-Q8_0
+      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_key: dummy
+
   # Embeddings model → exercises /v1/embeddings + semantic cache path.
   # encoding_format pinned: DMR rejects null; LiteLLM omits it by default.
   - model_name: local-embed
@@ -54,25 +66,6 @@ model_list:
       api_base: http://model-runner.docker.internal:12434/engines/v1
       api_key: dummy
       encoding_format: float
-
-guardrails:
-  # PII detection + masking via Microsoft Presidio. Runs pre_call so prompts
-  # are redacted BEFORE reaching the upstream model AND before being written
-  # to LiteLLM_SpendLogs — meaning even our own audit log never sees raw PII.
-  # default_on=true applies to every request unless a per-key opt-out is set.
-  - guardrail_name: "presidio-pii-mask"
-    litellm_params:
-      guardrail: presidio
-      mode: "pre_call"
-      default_on: true
-      pii_entities_config:
-        EMAIL_ADDRESS: "MASK"
-        US_SSN: "MASK"
-        CREDIT_CARD: "MASK"
-        PHONE_NUMBER: "MASK"
-        IP_ADDRESS: "MASK"
-        US_DRIVER_LICENSE: "MASK"
-        US_PASSPORT: "MASK"
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
