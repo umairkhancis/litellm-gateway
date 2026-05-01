@@ -25,6 +25,36 @@ model_list:
       api_base: http://model-runner.docker.internal:12434/engines/v1
       api_key: dummy
 
+  # local-fast: two backends behind one model_name → exercises router
+  # load-balancing, least-busy / latency-based routing strategies.
+  - model_name: local-fast
+    litellm_params:
+      model: openai/ai/smollm2
+      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_key: dummy
+
+  - model_name: local-fast
+    litellm_params:
+      model: openai/ai/qwen2.5:0.5B-F16
+      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_key: dummy
+
+  # qwen3 emits <think> blocks → tests reasoning_content normalization.
+  - model_name: local-reasoning
+    litellm_params:
+      model: openai/ai/qwen3
+      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_key: dummy
+
+  # Embeddings model → exercises /v1/embeddings + semantic cache path.
+  # encoding_format pinned: DMR rejects null; LiteLLM omits it by default.
+  - model_name: local-embed
+    litellm_params:
+      model: openai/ai/mxbai-embed-large
+      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_key: dummy
+      encoding_format: float
+
 guardrails:
   # PII detection + masking via Microsoft Presidio. Runs pre_call so prompts
   # are redacted BEFORE reaching the upstream model AND before being written
