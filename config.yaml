@@ -26,25 +26,25 @@ model_list:
   - model_name: llama3.2
     litellm_params:
       model: openai/docker.io/ai/llama3.2:latest
-      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_base: http://model-runner.docker.internal:12434/engines/v1  # DMR
       api_key: dummy
 
   - model_name: llama3.2
     litellm_params:
       model: openai/llama3.2
-      api_base: http://host.docker.internal:11434/v1
+      api_base: http://host.docker.internal:11434/v1               # Ollama
       api_key: dummy
 
   - model_name: llama3.2
     litellm_params:
       model: openai/llama3.2
-      api_base: http://host.docker.internal:8080/v1
+      api_base: http://host.docker.internal:8080/v1                # llama.cpp
       api_key: dummy
 
   - model_name: llama3.2
     litellm_params:
       model: openai/llama3.2
-      api_base: http://host.docker.internal:8000/v1
+      api_base: http://host.docker.internal:8000/v1                # vLLM
       api_key: dummy
 
   # ── qwen2.5 ────────────────────────────────────────────────────────────────
@@ -53,25 +53,25 @@ model_list:
   - model_name: qwen2.5
     litellm_params:
       model: openai/docker.io/ai/qwen2.5:latest
-      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_base: http://model-runner.docker.internal:12434/engines/v1  # DMR
       api_key: dummy
 
   - model_name: qwen2.5
     litellm_params:
       model: openai/qwen2.5:7b
-      api_base: http://host.docker.internal:11434/v1
+      api_base: http://host.docker.internal:11434/v1               # Ollama
       api_key: dummy
 
   - model_name: qwen2.5
     litellm_params:
       model: openai/qwen2.5
-      api_base: http://host.docker.internal:8080/v1
+      api_base: http://host.docker.internal:8080/v1                # llama.cpp
       api_key: dummy
 
   - model_name: qwen2.5
     litellm_params:
       model: openai/qwen2.5
-      api_base: http://host.docker.internal:8000/v1
+      api_base: http://host.docker.internal:8000/v1                # vLLM
       api_key: dummy
 
   # ── gemma3 ────────────────────────────────────────────────────────────────
@@ -80,25 +80,25 @@ model_list:
   - model_name: gemma3
     litellm_params:
       model: openai/docker.io/ai/gemma3:latest
-      api_base: http://model-runner.docker.internal:12434/engines/v1
+      api_base: http://model-runner.docker.internal:12434/engines/v1  # DMR
       api_key: dummy
 
   - model_name: gemma3
     litellm_params:
       model: openai/gemma3:4b
-      api_base: http://host.docker.internal:11434/v1
+      api_base: http://host.docker.internal:11434/v1               # Ollama
       api_key: dummy
 
   - model_name: gemma3
     litellm_params:
       model: openai/gemma3
-      api_base: http://host.docker.internal:8080/v1
+      api_base: http://host.docker.internal:8080/v1                # llama.cpp
       api_key: dummy
 
   - model_name: gemma3
     litellm_params:
       model: openai/gemma3
-      api_base: http://host.docker.internal:8000/v1
+      api_base: http://host.docker.internal:8000/v1                # vLLM
       api_key: dummy
 
 router_settings:
