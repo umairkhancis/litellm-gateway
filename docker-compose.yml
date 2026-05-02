@@ -60,6 +60,7 @@ services:
       - ./certs/cacert.pem:/certs/cacert.pem:ro
     extra_hosts:
       - "model-runner.docker.internal:host-gateway"
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
