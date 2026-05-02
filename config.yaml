@@ -1,4 +1,5 @@
 model_list:
+  # ── Anthropic cloud ────────────────────────────────────────────────────────
   - model_name: claude-sonnet
     litellm_params:
       model: anthropic/claude-sonnet-4-5-20250929
@@ -19,61 +20,95 @@ model_list:
       model: "anthropic/claude-*"
       api_key: os.environ/ANTHROPIC_API_KEY
 
-  - model_name: local-dmr
+  # ── llama3.2 ───────────────────────────────────────────────────────────────
+  # vLLM: start with --served-model-name llama3.2
+  # llama.cpp: serves one GGUF at a time — load a llama3.2 GGUF before routing here
+  - model_name: llama3.2
     litellm_params:
       model: openai/docker.io/ai/llama3.2:latest
       api_base: http://model-runner.docker.internal:12434/engines/v1
       api_key: dummy
 
-  # local-fast: two backends behind one model_name → exercises router
-  # load-balancing, least-busy / latency-based routing strategies.
-  - model_name: local-fast
+  - model_name: llama3.2
     litellm_params:
-      model: openai/ai/smollm2
+      model: openai/llama3.2
+      api_base: http://host.docker.internal:11434/v1
+      api_key: dummy
+
+  - model_name: llama3.2
+    litellm_params:
+      model: openai/llama3.2
+      api_base: http://host.docker.internal:8080/v1
+      api_key: dummy
+
+  - model_name: llama3.2
+    litellm_params:
+      model: openai/llama3.2
+      api_base: http://host.docker.internal:8000/v1
+      api_key: dummy
+
+  # ── qwen2.5 ────────────────────────────────────────────────────────────────
+  # vLLM: start with --served-model-name qwen2.5
+  # llama.cpp: load a qwen2.5 GGUF before routing here
+  - model_name: qwen2.5
+    litellm_params:
+      model: openai/docker.io/ai/qwen2.5:latest
       api_base: http://model-runner.docker.internal:12434/engines/v1
       api_key: dummy
 
-  - model_name: local-fast
+  - model_name: qwen2.5
     litellm_params:
-      model: openai/ai/qwen2.5:0.5B-F16
+      model: openai/qwen2.5:7b
+      api_base: http://host.docker.internal:11434/v1
+      api_key: dummy
+
+  - model_name: qwen2.5
+    litellm_params:
+      model: openai/qwen2.5
+      api_base: http://host.docker.internal:8080/v1
+      api_key: dummy
+
+  - model_name: qwen2.5
+    litellm_params:
+      model: openai/qwen2.5
+      api_base: http://host.docker.internal:8000/v1
+      api_key: dummy
+
+  # ── gemma3 ────────────────────────────────────────────────────────────────
+  # vLLM: start with --served-model-name gemma3
+  # llama.cpp: load a gemma3 GGUF before routing here
+  - model_name: gemma3
+    litellm_params:
+      model: openai/docker.io/ai/gemma3:latest
       api_base: http://model-runner.docker.internal:12434/engines/v1
       api_key: dummy
 
-  # qwen3 emits <think> blocks → tests reasoning_content normalization.
-  - model_name: local-reasoning
+  - model_name: gemma3
     litellm_params:
-      model: openai/ai/qwen3
-      api_base: http://model-runner.docker.internal:12434/engines/v1
+      model: openai/gemma3:4b
+      api_base: http://host.docker.internal:11434/v1
       api_key: dummy
 
-  - model_name: local-gemma
+  - model_name: gemma3
     litellm_params:
-      model: openai/ai/gemma3:1B-Q4_K_M
-      api_base: http://model-runner.docker.internal:12434/engines/v1
+      model: openai/gemma3
+      api_base: http://host.docker.internal:8080/v1
       api_key: dummy
 
-  - model_name: local-granite
+  - model_name: gemma3
     litellm_params:
-      model: openai/ai/granite-4.0-h-nano:350M-Q8_0
-      api_base: http://model-runner.docker.internal:12434/engines/v1
+      model: openai/gemma3
+      api_base: http://host.docker.internal:8000/v1
       api_key: dummy
 
-  # Embeddings model → exercises /v1/embeddings + semantic cache path.
-  # encoding_format pinned: DMR rejects null; LiteLLM omits it by default.
-  - model_name: local-embed
-    litellm_params:
-      model: openai/ai/mxbai-embed-large
-      api_base: http://model-runner.docker.internal:12434/engines/v1
-      api_key: dummy
-      encoding_format: float
+router_settings:
+  enable_pre_call_checks: true
+  routing_strategy: least-busy
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
   store_model_in_db: true
-  # Persist prompts and responses to LiteLLM_SpendLogs (messages/response columns).
-  # Audit/compliance feature — disable for privacy-sensitive deployments.
-  # Off by default upstream; we opt in here so the audit trail captures content.
   store_prompts_in_spend_logs: true
 
 litellm_settings:
@@ -83,15 +118,12 @@ litellm_settings:
     host: os.environ/REDIS_HOST
     port: os.environ/REDIS_PORT
 
-  # Defaults applied when a new user is auto-created via SSO first-login.
   default_internal_user_params:
     user_role: "internal_user"
     max_budget: 5.0
     budget_duration: "30d"
-    models: ["claude-haiku-4-5", "local-dmr"]
+    models: ["claude-haiku-4-5", "llama3.2"]
 
-  # Allow internal_user role (not just proxy_admin) to create personal keys.
-  # This is the documented knob that controls UI Create-Key button visibility.
   key_generation_settings:
     personal_key_generation:
       allowed_user_roles: ["proxy_admin", "internal_user"]
