@@ -20,90 +20,25 @@ model_list:
       model: "anthropic/claude-*"
       api_key: os.environ/ANTHROPIC_API_KEY
 
-  # ── llama3.2 ───────────────────────────────────────────────────────────────
-  # vLLM: start with --served-model-name llama3.2
-  # llama.cpp: serves one GGUF at a time — load a llama3.2 GGUF before routing here
+  # ── Local models — active runtime: DMR ────────────────────────────────────
+  # To swap runtimes see: SWAP_RUNTIME_LAYER.md
   - model_name: llama3.2
     litellm_params:
       model: openai/docker.io/ai/llama3.2:latest
       api_base: http://model-runner.docker.internal:12434/engines/v1  # DMR
       api_key: dummy
 
-  - model_name: llama3.2
-    litellm_params:
-      model: openai/llama3.2
-      api_base: http://host.docker.internal:11434/v1               # Ollama
-      api_key: dummy
-
-  - model_name: llama3.2
-    litellm_params:
-      model: openai/llama3.2
-      api_base: http://host.docker.internal:8080/v1                # llama.cpp
-      api_key: dummy
-
-  - model_name: llama3.2
-    litellm_params:
-      model: openai/llama3.2
-      api_base: http://host.docker.internal:8000/v1                # vLLM
-      api_key: dummy
-
-  # ── qwen2.5 ────────────────────────────────────────────────────────────────
-  # vLLM: start with --served-model-name qwen2.5
-  # llama.cpp: load a qwen2.5 GGUF before routing here
   - model_name: qwen2.5
     litellm_params:
       model: openai/docker.io/ai/qwen2.5:latest
       api_base: http://model-runner.docker.internal:12434/engines/v1  # DMR
       api_key: dummy
 
-  - model_name: qwen2.5
-    litellm_params:
-      model: openai/qwen2.5:7b
-      api_base: http://host.docker.internal:11434/v1               # Ollama
-      api_key: dummy
-
-  - model_name: qwen2.5
-    litellm_params:
-      model: openai/qwen2.5
-      api_base: http://host.docker.internal:8080/v1                # llama.cpp
-      api_key: dummy
-
-  - model_name: qwen2.5
-    litellm_params:
-      model: openai/qwen2.5
-      api_base: http://host.docker.internal:8000/v1                # vLLM
-      api_key: dummy
-
-  # ── gemma3 ────────────────────────────────────────────────────────────────
-  # vLLM: start with --served-model-name gemma3
-  # llama.cpp: load a gemma3 GGUF before routing here
   - model_name: gemma3
     litellm_params:
       model: openai/docker.io/ai/gemma3:latest
       api_base: http://model-runner.docker.internal:12434/engines/v1  # DMR
       api_key: dummy
-
-  - model_name: gemma3
-    litellm_params:
-      model: openai/gemma3:4b
-      api_base: http://host.docker.internal:11434/v1               # Ollama
-      api_key: dummy
-
-  - model_name: gemma3
-    litellm_params:
-      model: openai/gemma3
-      api_base: http://host.docker.internal:8080/v1                # llama.cpp
-      api_key: dummy
-
-  - model_name: gemma3
-    litellm_params:
-      model: openai/gemma3
-      api_base: http://host.docker.internal:8000/v1                # vLLM
-      api_key: dummy
-
-router_settings:
-  enable_pre_call_checks: true
-  routing_strategy: least-busy
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
