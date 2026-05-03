@@ -41,9 +41,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       STORE_MODEL_IN_DB: "True"
-      # Native OIDC SSO for the admin UI. LiteLLM creates user records on
-      # first login, scopes virtual keys per user, tracks spend per user.
-      # API paths (/v1/*, /chat/*, etc.) remain authenticated by virtual keys.
       PROXY_BASE_URL: ${PROXY_BASE_URL:-}
       GENERIC_CLIENT_ID: ${GENERIC_CLIENT_ID:-}
       GENERIC_CLIENT_SECRET: ${GENERIC_CLIENT_SECRET:-}
@@ -51,13 +48,12 @@ services:
       GENERIC_TOKEN_ENDPOINT: ${GENERIC_TOKEN_ENDPOINT:-}
       GENERIC_USERINFO_ENDPOINT: ${GENERIC_USERINFO_ENDPOINT:-}
       # Trust mkcert's local CA so server-to-server calls to dex.umairkhancis.test
-      # over HTTPS validate. Bundle = curl's public CA list + mkcert root, so
-      # public providers (Anthropic, etc.) keep working too.
+      # over HTTPS validate. Bundle = mkcert root + public CAs.
       SSL_CERT_FILE: /certs/cacert.pem
       REQUESTS_CA_BUNDLE: /certs/cacert.pem
     volumes:
       - ./config.yaml:/app/config.yaml:ro
-      - ./certs/cacert.pem:/certs/cacert.pem:ro
+      - ../certs/cacert.pem:/certs/cacert.pem:ro
     extra_hosts:
       - "model-runner.docker.internal:host-gateway"
       - "host.docker.internal:host-gateway"
@@ -66,10 +62,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      dex:
-        condition: service_started
-      caddy:
-        condition: service_started
+    networks:
+      - infra-net
+      - default
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness').status==200 else 1)"]
       interval: 10s
@@ -77,41 +72,12 @@ services:
       retries: 5
       start_period: 30s
 
-  dex:
-    image: ghcr.io/dexidp/dex:v2.39.1
-    container_name: litellm-dex
-    restart: unless-stopped
-    command: ["dex", "serve", "/etc/dex/config.yaml"]
-    volumes:
-      - ./dex/config.yaml:/etc/dex/config.yaml:ro
-
-  # TLS termination + reverse proxy. Network aliases make Caddy resolvable
-  # under the public hostnames from inside the docker network too — so the
-  # litellm container hits dex.umairkhancis.test (HTTPS) the same way the
-  # browser does. No split-horizon, exactly like a real Okta tenant.
-  caddy:
-    image: caddy:2.10-alpine
-    container_name: litellm-caddy
-    restart: unless-stopped
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./certs:/certs:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      dex:
-        condition: service_started
-    networks:
-      default:
-        aliases:
-          - litellm.umairkhancis.test
-          - dex.umairkhancis.test
-
 volumes:
   postgres_data:
   redis_data:
-  caddy_data:
-  caddy_config:
+
+networks:
+  infra-net:
+    external: true
+  default:
+    driver: bridge

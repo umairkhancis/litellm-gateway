@@ -4,18 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A self-hosted LiteLLM proxy gateway. It unifies Anthropic cloud models and local LLM runtimes behind a single OpenAI-compatible API, with SSO via OIDC (Dex or any real IdP), per-user spend tracking, Redis caching, and a Postgres audit log.
+A self-hosted LiteLLM proxy gateway. It unifies Anthropic cloud models and local LLM runtimes behind a single OpenAI-compatible API. It is one app in a broader `ai-infra/` workspace that models enterprise prod topology.
 
-Stack: LiteLLM + Postgres + Redis + Dex (IdP) + Caddy (TLS termination), all wired together via Docker Compose.
+Stack (this repo): LiteLLM + Postgres + Redis
+
+Shared infra (sibling folders, bring up first):
+- `../idp/` — Dex OIDC IdP (stands in for Okta)
+- `../gateway/` — Caddy reverse proxy (stands in for shared internal LB / ALB)
 
 ## Starting and stopping
 
 ```bash
-# Production (uses real OIDC from .env)
-docker compose up -d
+# One-time setup (first time only)
+docker network create infra-net
 
-# Local dev (wires OIDC to the bundled Dex IdP)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# Bring up shared infra first
+cd ../idp     && docker compose up -d
+cd ../gateway && docker compose up -d
+
+# Then bring up this app
+docker compose up -d
 
 # Reload LiteLLM config after editing config.yaml (no full restart needed)
 docker compose restart litellm
@@ -33,39 +41,50 @@ Copy `.env.example` to `.env` and fill in:
 - `LITELLM_MASTER_KEY` — admin key, prefix with `sk-`, generate with `openssl rand -hex 32`
 - `POSTGRES_PASSWORD` — generate with `openssl rand -hex 24`
 - `ANTHROPIC_API_KEY` — required for cloud models
-- OIDC vars (`GENERIC_CLIENT_ID`, etc.) — leave blank if using dev override file with bundled Dex
+- OIDC vars (`GENERIC_CLIENT_ID`, etc.) — point at your IdP; for local Dex use `https://dex.umairkhancis.test`
 
 ## Architecture
 
 ```
 Browser / API clients
        │
-   Caddy :443 (TLS termination, certs/gateway.pem)
+   Caddy :443  (../gateway — shared internal LB, stands in for ALB)
+       │                    aliases: litellm.umairkhancis.test, dex.umairkhancis.test
        │
-  ┌────┴───────────────────┐
-  │  litellm :4000         │  ← config.yaml drives model routing
-  │  (admin UI + API)      │
-  └────┬──────┬────────────┘
+  ┌────┴────────────────────────────────────────────────────┐
+  │                      infra-net (shared Docker network)  │
+  │  litellm :4000                 Dex :5556 (../idp)       │
+  │  (admin UI + API)              OIDC IdP, stands in      │
+  └────┬──────┬──────────────────  for Okta ────────────────┘
        │      │
-   Postgres  Redis         Dex :5556 (OIDC IdP)
-   (spend,   (response      ↑
-    keys,     cache)     Caddy proxies dex.umairkhancis.test → dex:5556
-    users)               so the OIDC issuer resolves identically from
-                         the browser and from inside the litellm container
+   Postgres  Redis    ← default network (private subnet)
+   (spend,   (response   invisible to other apps
+    keys,     cache)
+    users)
 ```
 
-Key design point: Caddy has docker network aliases for both `litellm.umairkhancis.test` and `dex.umairkhancis.test`, so there is no split-horizon DNS — LiteLLM's server-side OIDC token exchange hits the same TLS-terminated endpoint as the browser.
+Network boundaries:
+- `infra-net` — shared subnet; litellm, caddy, dex all join it
+- `litellm-gateway_default` — private subnet; postgres and redis only, not reachable from other apps
+- litellm joins both networks; postgres/redis join only the private one
+
+Traffic:
+- Browser → Caddy: HTTPS (mkcert cert in `../certs/`)
+- Caddy → litellm: plain HTTP (inside network, like ALB → app)
+- litellm → Dex: HTTPS via `dex.umairkhancis.test` (simulates calling external SaaS IdP)
+- litellm → postgres/redis: plain TCP (private subnet)
 
 ## Configuration files
 
 | File | Purpose |
 |---|---|
 | `config.yaml` | Model list, LiteLLM settings, spend/cache config |
-| `dex/config.yaml` | Dex IdP: OIDC issuer, static clients, test users |
-| `caddy/Caddyfile` | TLS termination and reverse proxy rules |
-| `docker-compose.yml` | Service definitions |
-| `docker-compose.dev.yml` | Dev override: points OIDC at bundled Dex |
+| `caddy/litellm.caddy` | This app's routing snippet — registered into `../gateway/` |
+| `docker-compose.yml` | Service definitions (litellm, postgres, redis) |
 | `.env` / `.env.example` | Secrets and provider keys |
+| `../gateway/docker-compose.yml` | Caddy — add a volume mount here to register a new app |
+| `../idp/dex/config.yaml` | Dex — add a staticClient here to onboard a new app's OIDC |
+| `../certs/` | mkcert TLS certs (shared, not in git) |
 
 ## Model routing
 
@@ -84,17 +103,19 @@ The `claude-*` wildcard entry in `config.yaml` passes any unrecognized `claude-`
 - New users auto-get `internal_user` role, $5 / 30-day budget (`default_internal_user_params` in `config.yaml`).
 - Both `proxy_admin` and `internal_user` roles can generate personal keys.
 
-## Test users (Dex)
+## Onboarding a new app to the shared infra
 
-All use password `test`. Emails: `test@example.com` through `test10@example.com`.
+1. **IdP** — add a `staticClient` entry to `../idp/dex/config.yaml`, then `docker compose restart dex` in `../idp/`
+2. **Gateway** — add a volume mount for the new app's `.caddy` snippet in `../gateway/docker-compose.yml`, then `docker compose restart caddy` in `../gateway/`
+3. **Network** — ensure the new app's compose joins `infra-net` as an external network
 
-## Audit / spend queries
+## Spend queries
 
-LiteLLM writes every request to `LiteLLM_SpendLogs` automatically. Ready-to-run SQL is in `audit/queries/`. Run them with:
+LiteLLM writes every request to `LiteLLM_SpendLogs` automatically.
 
 ```bash
 # Inline
-docker compose exec -T postgres psql -U litellm -d litellm -c "$(cat audit/queries/per_model_usage.sql)"
+docker compose exec -T postgres psql -U litellm -d litellm -c "SELECT model, COUNT(*), SUM(spend) FROM \"LiteLLM_SpendLogs\" GROUP BY model;"
 
 # Interactive psql
 docker compose exec postgres psql -U litellm -d litellm
@@ -104,4 +125,4 @@ docker compose exec postgres psql -U litellm -d litellm
 
 ## TLS certs
 
-Certs in `certs/` are generated by mkcert (local CA). `cacert.pem` is the bundle (mkcert root + public CAs) mounted into the litellm container so Anthropic API calls still validate. Regenerate with mkcert if certs expire.
+Certs live in `../certs/` (shared across all infra, generated by mkcert, not in git). `cacert.pem` is the bundle (mkcert root + public CAs) mounted into the litellm container so Anthropic API calls still validate. Regenerate with mkcert if certs expire.

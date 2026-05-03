@@ -1,0 +1,4 @@
+litellm.umairkhancis.test {
+	tls /certs/gateway.pem /certs/gateway-key.pem
+	reverse_proxy litellm:4000
+}
