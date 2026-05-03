@@ -57,7 +57,7 @@ litellm_settings:
     user_role: "internal_user"
     max_budget: 5.0
     budget_duration: "30d"
-    models: ["claude-haiku-4-5", "llama3.2"]
+
 
   key_generation_settings:
     personal_key_generation:
