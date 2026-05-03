@@ -53,7 +53,7 @@ services:
       REQUESTS_CA_BUNDLE: /certs/cacert.pem
     volumes:
       - ./config.yaml:/app/config.yaml:ro
-      - ../certs/cacert.pem:/certs/cacert.pem:ro
+      - infra-certs:/certs:ro
     extra_hosts:
       - "model-runner.docker.internal:host-gateway"
       - "host.docker.internal:host-gateway"
@@ -75,6 +75,8 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  infra-certs:
+    external: true
 
 networks:
   infra-net:
